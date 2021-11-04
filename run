@@ -1,0 +1,2 @@
+#!/usr/bin/env sh
+RUST_MIN_STACK=8388608 cargo +nightly run --release
