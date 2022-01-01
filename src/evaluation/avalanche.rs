@@ -1,9 +1,8 @@
+#![allow(dead_code)]
 use aligned_array::{Aligned, A32};
 use std::{arch::x86_64::*, fmt::Display, mem};
 
-use crate::{bitset};
-
-use super::{diffuse::DiffusionFunc, utils};
+use crate::{diffusion::DiffusionFunc, utils::{self, bitset}};
 
 
 /** OBS: These are mirrored from how they apear in our Jupyter notebook because that's more cache efficient. */
@@ -15,18 +14,19 @@ pub struct AvalancheDiagram {
 
 impl Display for AvalancheDiagram {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "AvalancheDiagram{{vals:\n")?;
+		writeln!(f, "AvalancheDiagram{{vals:")?;
         write!(f, "[")?;
 		for i in 0..64 {
 			let row = &self.vals[i];
 			write!(f, "[")?;
+			#[allow(clippy::needless_range_loop)]
 			for j in 0..64 {
 				let x = row[j];
 				write!(f, "{}", x)?;
 				if j != 63 { write!(f, ",")?; }
 			}
-			if i == 63 { write!(f, "]]\n")?; }
-			else { write!(f, "],\n")?; }
+			if i == 63 { writeln!(f, "]]")?; }
+			else { writeln!(f, "],")?; }
 		}
 
 		write!(f, "expected: {}}}", self.expected)
@@ -48,7 +48,7 @@ impl AvalancheDiagram {
 		Self { expected: n_samples >> 1, vals }
 	}
 
-	pub fn of(f: &DiffusionFunc, samples: &[u64]) -> Self {
+	pub fn of(f: &impl DiffusionFunc, samples: &[u64]) -> Self {
 		let mut vals: Aligned<A32, _> = Aligned([[0_u32; 64]; 64]);
 		for &x in samples {
 			let h = f.diffuse(x);
@@ -131,7 +131,9 @@ impl AvalancheDiagram {
 
 #[cfg(test)]
 mod tests {
-	use super::*;
+	use crate::diffusion::mrxsm::MRXSM;
+
+use super::*;
 	use rand::Rng;
 
 	#[test]
@@ -181,12 +183,12 @@ mod tests {
 
 	#[test]
 	fn avalanche_diagram_of_func() {
-		let f = DiffusionFunc::new(0x6eed0e9da4d94a4f, 0x6eed0e9da4d94a4f, 32, 60);
+		let f = MRXSM::new(0x6eed0e9da4d94a4f, 0x6eed0e9da4d94a4f, 32, 60);
 		let mut rng = rand::thread_rng();
 		const N_SAMPLES: usize = 1000;
 		let mut samples = [0_u64; N_SAMPLES];
-		for i in 0..N_SAMPLES {
-			samples[i] = rng.gen();
+		for sample in samples.iter_mut() {
+			*sample = rng.gen();
 		}
 		let diag = AvalancheDiagram::of(&f, &samples);
 		let sse = diag.sse_reference();

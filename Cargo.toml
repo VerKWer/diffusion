@@ -2,9 +2,10 @@
 name = "diffusion"
 version = "0.1.0"
 edition = "2021"
-rust = "1.55"
 
 [dependencies]
+static_assertions = "*"
+cfg-if = "*"
 rand = "*"
 aligned-array = "*"
 num-integer = "*"
@@ -23,6 +24,9 @@ rand_distr = "*"
 name = "benchmarks"
 harness = false
 
-# Add symbol information for flamegraph
 [profile.release]
-debug = true
+debug = true  # Add symbol information for flamegraph
+#lto = true
+
+[features]
+profile = []  # no additional dependencies

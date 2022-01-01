@@ -34,10 +34,10 @@ const fn init_set_bits() -> Aligned<A32, [[u32; 8]; 256]> {
 
 
 /** Returns an array whose `n`<sup>th</sup> entry is 1 iff the `n`<sup>th</sup> bit of `x` (starting at the least
- 	significant bit) is 1 and 0 otherwise. This means that (in a sense), the order of bits is reversed but more
- 	importantly, each bit of x is expanded to a 32-bit integer.
+significant bit) is 1 and 0 otherwise. This means that (in a sense), the order of bits is reversed but more
+importantly, each bit of x is expanded to a 32-bit integer.
 
-	The returned array reference is guaranteed to be 32-byte aligned. */
+The returned array reference is guaranteed to be 32-byte aligned. */
 #[inline(always)]
 pub fn get_set_bits(x: u8) -> &'static [u32; 8] { &SET_BITS[x as usize] }
 
@@ -58,8 +58,7 @@ mod tests {
         for x in 0_u8..255 {
             let bs = get_set_bits(x);
             let mut y = 0;
-            for i in 0..8 {
-                let b = bs[i];
+            for (i, b) in bs.iter().enumerate() {
                 y += b << i;
             }
             assert_eq!(x as u32, y);

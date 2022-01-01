@@ -1,8 +1,12 @@
+#![allow(clippy::missing_safety_doc)]
 use std::{arch::x86_64::*, mem::{self}};
 
 use aligned_array::{A32, Aligned};
 use num_integer::{div_rem};
 use rand::Rng;
+
+pub mod bitset;
+pub mod wasserstein;
 
 /** For some reason _mm256_load intrinsics are painfully slow and using transmute is significantly faster.
  * However, you need to make sure yourself that the pointer is 32-byte aligned. */
@@ -71,8 +75,7 @@ pub fn mul_m256i64(a: __m256i, b: __m256i) -> __m256i {
         let mixed = _mm256_and_si256(mixed, _mm256_set1_epi64x(0xffffffff00000000));
 
         let prod = _mm256_mul_epu32(a, b);  // product of lower 32 bits: [a_il * b_il]_i  (64 bit ints!)
-        let prod = _mm256_add_epi64(mixed, prod);
-        prod
+        _mm256_add_epi64(mixed, prod)
     }
 }
 
@@ -175,7 +178,7 @@ pub fn random_geom_u32(n: u32, rng: &mut impl Rng) -> u32 {
         result += 1;
         x = y;
     }
-    return result;
+    result
 }
 
 
@@ -300,7 +303,7 @@ mod tests {
         for _ in 0..1000 {
             let xs: [u64; 4] = rng.gen();
             let ys: [u64; 4] = rng.gen();
-            let mut zs = [0_64; 4];
+            let mut zs = [0_u64; 4];
             for i in 0..4 { zs[i] = xs[i].overflowing_mul(ys[i]).0; }
             let zs2 = m256i_to_u64x4(mul_m256i64(m256i_from_u64x4(xs), m256i_from_u64x4(ys)));
             assert_eq!(zs, zs2);
@@ -315,7 +318,7 @@ mod tests {
         for _ in 0..1000 {
             let mut vals: Aligned<A32, _> = Aligned([0_u64; 128]);
             for i in 0..128 { vals[i] = rng.gen(); }
-            let xored = xor_many(&mut vals, x);
+            let xored = xor_many(&vals, x);
             for i in 0..128 {
                 assert_eq!(vals[i] ^ x, xored[i]);
             }

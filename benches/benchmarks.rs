@@ -1,6 +1,6 @@
 use aligned_array::{A32, Aligned};
 use criterion::{criterion_group, criterion_main, Criterion};
-use diffusion::{diffusion::{DiffusionFunc, Endo64}, mrxsm::{MRXSM}, utils};
+use diffusion::{diffusion::{DiffusionFunc, mrxsm::MRXSM}, utils};
 use rand::Rng;
 use rand_distr::{Distribution, Geometric};
 
@@ -40,7 +40,7 @@ fn xor_benchmark(c: &mut Criterion) {
 
     c.bench_function("xor_simd", |b| {
         b.iter(|| {
-            utils::xor_many(&mut xs, x)
+            utils::xor_many(&xs, x)
         })
     });
 }
@@ -52,8 +52,8 @@ fn geom_distr_benchmark(c: &mut Criterion) {
     c.bench_function("rand_geo", |b| {
         b.iter(|| {
             let mut ys = [0_u32; 1024];
-            for i in 0..1024 {
-                ys[i] = geo.sample(&mut rng) as u32;
+            for y in ys.iter_mut() {
+                *y = geo.sample(&mut rng) as u32;
             }
             ys
         })
@@ -62,8 +62,8 @@ fn geom_distr_benchmark(c: &mut Criterion) {
     c.bench_function("our_geo", |b| {
         b.iter(|| {
             let mut ys = [0_u32; 1024];
-            for i in 0..1024 {
-                ys[i] = utils::random_geom_u32(3, &mut rng);
+            for y in ys.iter_mut() {
+                *y = utils::random_geom_u32(3, &mut rng);
             }
             ys
         })
@@ -72,8 +72,8 @@ fn geom_distr_benchmark(c: &mut Criterion) {
     c.bench_function("our_geo_half", |b| {
         b.iter(|| {
             let mut ys = [0_u32; 1024];
-            for i in 0..1024 {
-                ys[i] = rng.gen::<u32>().trailing_zeros();
+            for y in ys.iter_mut() {
+                *y = rng.gen::<u32>().trailing_zeros();
             }
             ys
         })
@@ -87,9 +87,9 @@ fn sample_exchange_benchmark(c: &mut Criterion) {
 
     c.bench_function("naive_exchange", |b| {
         b.iter(|| {
-            for i in 0..samples.len() {
+            for sample in samples.iter_mut() {
                 let change: bool = rng.gen();
-                samples[i] = if change { rng.gen() } else { samples[i] };
+                *sample = if change { rng.gen() } else { *sample };
             }
         })
     });

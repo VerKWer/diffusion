@@ -1,4 +1,4 @@
-use crate::{globals::N_SAMPLES};
+use crate::globals::N_SAMPLES_PER_ROUND;
 
 // pub const BINOM64_PMF: [f32; 65] = [5.421010862427522e-20, 3.469446951953597e-18, 1.0928757898653858e-16,
 //     2.258609965721796e-15, 3.4443801977257506e-14, 4.1332562372709e-13, 4.064368633316391e-12, 3.367619724747855e-11,
@@ -43,7 +43,7 @@ const fn init_binom64_pmf() -> [f32; 65] {
 const BINOM64_CDF_SCALED: [f32; 65] = init_binom64_cdf_scaled();
 
 const fn init_binom64_cdf_scaled() -> [f32; 65] {
-	let mut pmf = [0_f32; 65];
+	let mut cdf = [0_f32; 65];
 	let mut binom_coeffs = [[0_u64; 65]; 65];
 	let mut n = 0;
 	while n <= 64 {
@@ -58,15 +58,14 @@ const fn init_binom64_cdf_scaled() -> [f32; 65] {
 	let mut p = 0_f64;
 	let mut k = 0;
 	while k <= 64 {
-		p += binom_coeffs[64][k] as f64 / 18446744073709551616.0 * N_SAMPLES as f64;
-		pmf[k] = p as f32;
+		p += binom_coeffs[64][k] as f64 / 18446744073709551616.0 * N_SAMPLES_PER_ROUND as f64;
+		cdf[k] = p as f32;
 		k += 1;
 	}
-
-	pmf
+	cdf
 }
 
-/** Calculates the 1-Wasserstein distance of a finite pmf on 0..=64 to Bin(64, 0.5). */
+/** Calculates the (unnormalised) 1-Wasserstein distance of a finite pmf on 0..=64 to Bin(64, 0.5). */
 #[inline(always)]
 pub fn of_distr(p: &[f32; 65]) -> f32 {
 	let mut d = 0_f32;
@@ -75,31 +74,35 @@ pub fn of_distr(p: &[f32; 65]) -> f32 {
 		t = p[i] + t - BINOM64_PMF[i];
 		d += t.abs();
 	}
-	d //* (N_SAMPLES as f32).sqrt()
+	d //* (N_SAMPLES_PER_ROUND as f32).sqrt()
 }
 
-/** Calculates the normalised 1-Wasserstein distance from the raw case counts. This might be more efficient than scaling
-    `p` itself, which would involve one floating point division per entry. Instead, we can avoid all this and only
-    perform a single division at the end.
+/** Calculates the (unnormalised) 1-Wasserstein distance from the raw case counts. This might be more efficient than
+scaling `p` itself, which would involve one floating point division per entry. Instead, we can avoid all this and only
+perform a single division at the end.
 
-_NOTE:_ The sum of the `p` vector must equal `N_SAMPLES`. */
+_NOTE:_ The sum of the `p` vector must equal `N_SAMPLES_PER_ROUND`. */
 #[inline(always)]
-pub fn of_counts(p: &[u32; 65]) -> f32 {
+pub fn of_counts(counts: &[u32; 65]) -> f32 {
+	debug_assert!(counts.iter().sum::<u32>() == N_SAMPLES_PER_ROUND);
 	let mut d = 0_f32;
-	let mut p_sum = 0_u32;
-	for i in 0..65 {
-		p_sum += p[i];
-		d += (p_sum as f32 - BINOM64_CDF_SCALED[i]).abs();
+	let mut c_sum = 0_u32;
+	for (c, b) in counts.iter().zip(BINOM64_CDF_SCALED.iter()) {
+		c_sum += c;
+		d += (c_sum as f32 - b).abs();
 	}
-	d / (N_SAMPLES as f32).sqrt()
+	d / (N_SAMPLES_PER_ROUND as f32)//.sqrt()
+}
+
+pub fn normalise(w1: f32) -> f32 {
+	w1 * (N_SAMPLES_PER_ROUND as f32).sqrt()
 }
 
 
 #[cfg(test)]
 mod tests {
-	use rand::Rng;
-
 	use super::*;
+	use rand::Rng;
 
 	#[test]
 	fn print_binom64_pmf() {
@@ -164,14 +167,15 @@ mod tests {
 		let mut rng = rand::thread_rng();
 		for _ in 0..100 {
 			let mut counts = [0_u32; 65];
-			for _ in 0..N_SAMPLES {
+			for _ in 0..N_SAMPLES_PER_ROUND {
 				let i = rng.gen_range(0..65);
 				counts[i] += 1;
 			}
-			let p = counts.map(|c| c as f32 / N_SAMPLES as f32);
-			let w1 = of_distr(&p) * (N_SAMPLES as f32).sqrt();
+			let p = counts.map(|c| c as f32 / N_SAMPLES_PER_ROUND as f32);
+			let w1 = of_distr(&p);
 			let w2 = of_counts(&counts);
-			assert!((w1 - w2).abs() <= 10e-5);
+			println!("{} ~ {}", w1, w2);
+			assert!(((w1 - w2) / w1).abs() <= 0.001);
 		}
 	}
 }
